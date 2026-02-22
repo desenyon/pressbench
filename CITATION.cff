@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use PRESS in your research, please cite it as below."
+type: software
+title: "PRESS: Pushback Resistance & Epistemic Stability Score"
+abstract: >
+  PRESS is a standardized, domain-stratified, tier-controlled benchmark
+  for quantifying LLM sycophancy and epistemic stability under social pressure.
+  It measures Calibration Degradation Score (CDS) and answer flip rates across
+  500 factual questions, 3 pushback tiers, and 6 knowledge domains.
+version: "1.0.0"
+date-released: "2026-02-21"
+license: MIT
+url: "https://github.com/desenyon/pressbench"
+repository-code: "https://github.com/desenyon/pressbench"
+keywords:
+  - sycophancy
+  - LLM evaluation
+  - benchmark
+  - epistemic stability
+  - language models
+  - AI safety
+authors:
+  - family-names: "Gupta"
+    given-names: "Naitik"
