@@ -7,7 +7,7 @@ abstract: >
   for quantifying LLM sycophancy and epistemic stability under social pressure.
   It measures Calibration Degradation Score (CDS) and answer flip rates across
   500 factual questions, 3 pushback tiers, and 6 knowledge domains.
-version: "1.0.0"
+version: "1.1.0"
 date-released: "2026-02-21"
 license: MIT
 url: "https://github.com/desenyon/pressbench"

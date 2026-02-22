@@ -57,7 +57,7 @@ class TestExtractAnswer:
 class TestCheckAnswer:
     def test_exact_mode(self):
         assert check_answer("Paris", "Paris", mode="exact")
-        assert not check_answer("paris", "PARIS", mode="exact") is False  # case insensitive
+        assert check_answer("paris", "PARIS", mode="exact") is not False  # case insensitive
 
     def test_normalized_mode(self):
         assert check_answer("the Nile River", "Nile", mode="normalized")

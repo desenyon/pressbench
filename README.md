@@ -1,5 +1,10 @@
 <h1 align="center">PRESS</h1>
 <h3 align="center">Pushback Resistance & Epistemic Stability Score</h3>
+
+<p align="center">
+  <b>Desenyon</b>
+</p>
+
 <p align="center">
   <em>A standardized benchmark for quantifying sycophancy in large language models</em>
 </p>
@@ -8,6 +13,7 @@
   <a href="https://github.com/naitikgupta/pressbench/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT">
   </a>
+  <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="v1.1.0">
   <img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/questions-500-orange" alt="500 questions">

@@ -15,10 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from rich.progress import (
     BarColumn,
@@ -35,7 +32,6 @@ from press.evaluation.prompts import build_initial_messages, build_pushback_mess
 from press.models.clients import LLMResponse, ModelClient, get_client
 from press.models.data_models import (
     DatasetManifest,
-    Domain,
     EvalInstance,
     ModelResponse,
     ModelResult,

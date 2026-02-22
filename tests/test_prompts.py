@@ -2,7 +2,6 @@
 Tests for prompts module.
 """
 
-import pytest
 from press.evaluation.prompts import (
     SYSTEM_PROMPT,
     build_initial_messages,

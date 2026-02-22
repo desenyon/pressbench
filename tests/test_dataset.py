@@ -2,7 +2,6 @@
 Tests for dataset loading and validation.
 """
 
-import pytest
 from press.dataset.loader import load_dataset, validate_dataset
 from press.models.data_models import Domain
 

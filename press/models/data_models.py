@@ -74,7 +74,7 @@ class Question(BaseModel):
 class DatasetManifest(BaseModel):
     """Top-level container for the full question dataset."""
 
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     created: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     total_questions: int = 0
     domains: dict[str, int] = Field(default_factory=dict)

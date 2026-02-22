@@ -2,7 +2,6 @@
 Tests for the confidence classifier.
 """
 
-import pytest
 from press.calibration.confidence_classifier import (
     confidence_from_logprob,
     confidence_from_text,

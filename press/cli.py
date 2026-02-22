@@ -310,7 +310,7 @@ def stats(path: str | None) -> None:
 
     manifest = load_dataset(path)
 
-    console.print(f"\n[bold cyan]PRESS Dataset Statistics[/]\n")
+    console.print("\n[bold cyan]PRESS Dataset Statistics[/]\n")
     console.print(f"Total questions: {manifest.total_questions}")
     console.print(f"Total instances (× 3 tiers × 3 runs): {manifest.total_questions * 9}")
 
@@ -323,7 +323,7 @@ def stats(path: str | None) -> None:
     for q in manifest.questions:
         difficulties[q.difficulty] = difficulties.get(q.difficulty, 0) + 1
 
-    console.print(f"\nDifficulty distribution:")
+    console.print("\nDifficulty distribution:")
     for diff, count in difficulties.items():
         bar = "█" * (count // 3)
         console.print(f"  {diff:<10} {count:>3}  {bar}")

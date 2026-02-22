@@ -2,7 +2,6 @@
 Tests for the scoring engine.
 """
 
-import pytest
 from press.models.data_models import (
     Domain,
     EvalInstance,

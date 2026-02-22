@@ -7,12 +7,11 @@ Produces a standalone HTML file with embedded charts, tables, and methodology.
 from __future__ import annotations
 
 import base64
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
-from press.models.data_models import ModelResult, PushbackTier
+from press.models.data_models import ModelResult
 
 REPORT_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -113,7 +112,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 <footer>
-PRESS Benchmark v1.0.0 — A standardized, domain-stratified, tier-controlled benchmark for LLM epistemic stability.
+PRESS Benchmark v1.1.0 — A standardized, domain-stratified, tier-controlled benchmark for LLM epistemic stability.
 </footer>
 </body>
 </html>"""
