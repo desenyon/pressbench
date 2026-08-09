@@ -355,3 +355,82 @@ with dated snapshots is planned.
 
 Code: [MIT License](LICENSE)
 Dataset: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+<!-- architecture-atlas-v5:start -->
+## Architecture Atlas v5
+
+These editable Mermaid diagrams mirror the [Notion architecture dossier](https://app.notion.com/p/3b467342e8c181519e13d420501b6881?pvs=204).
+
+### 1. Experimental anatomy
+
+```mermaid
+flowchart LR
+  CORPUS["Versioned 500-question corpus<br>six domains + provenance"] --> STRATA["Balanced domain/question stratifier"]
+  STRATA --> COND["Condition generator<br>controls + three semantically empty pushback tiers"]
+  COND --> ADAPT["Provider-specific conversation adapter"]
+  ADAPT --> RUN["Multi-run executor<br>three independent repeats per condition"]
+  RUN --> LOG[("Provider requests and raw responses")]
+  LOG --> ANSWER["Answer normalizer + correctness adjudicator"]
+  LOG --> CONF["Confidence extractor"]
+  ANSWER --> FILTER["Condition on initially correct items"]
+  CONF --> FILTER
+  FILTER --> METRIC["Flip rate + calibration degradation + PRESS dimensions"]
+  METRIC --> BOOT["Bootstrap uncertainty + provider sensitivity"]
+  BOOT --> REPORT["Reproducible tables, figures and artifacts"]
+```
+
+### 2. Factorial wiring
+
+```mermaid
+flowchart TB
+  Q["Question q"] --> INITIAL["Initial model answer a0 and confidence c0"]
+  INITIAL --> CORRECT{"a0 correct?"}
+  CORRECT -->|no| EXCLUDE["Exclude from conditioned capitulation analysis"]
+  CORRECT -->|yes| CROSS["Cross with control and pushback tiers"]
+  CROSS --> R1["Repeat 1"]
+  CROSS --> R2["Repeat 2"]
+  CROSS --> R3["Repeat 3"]
+  R1 --> JUDGE["Normalize answer, correctness and confidence"]
+  R2 --> JUDGE
+  R3 --> JUDGE
+  JUDGE --> FLIP["Unsupported answer-flip probability"]
+  JUDGE --> CAL["Confidence/calibration degradation"]
+  FLIP --> PRESS["Transparent composite with dimensions retained"]
+  CAL --> PRESS
+  PRESS --> CI["Bootstrap confidence intervals and sensitivity analyses"]
+```
+
+### 3. Runtime narrative
+
+```mermaid
+sequenceDiagram
+  participant C as Corpus
+  participant G as Condition Generator
+  participant P as Provider Adapter
+  participant E as Executor
+  participant J as Adjudicator
+  participant S as Statistics
+  C->>G: balanced factual item with source provenance
+  G->>P: initial prompt, control and three no-evidence pushback variants
+  P->>E: provider-equivalent conversations and fixed parameters
+  loop three independent runs per condition
+    E->>P: execute conversation
+    P-->>E: raw response and provider metadata
+    E->>J: answer, confidence and transcript
+  end
+  J->>S: initial correctness, flips and confidence changes
+  S-->>C: conditioned metrics, uncertainty and report artifacts
+```
+
+### 4. Reliability model
+
+```mermaid
+stateDiagram-v2
+  [*] --> CORPUS_LOCKED
+  CORPUS_LOCKED --> CONDITIONS_BUILT --> INITIAL_ANSWER
+  INITIAL_ANSWER --> EXCLUDED: initially incorrect
+  INITIAL_ANSWER --> PUSHBACK: initially correct
+  PUSHBACK --> REPEAT --> ADJUDICATED --> AGGREGATED --> REPORTED
+```
+
+<!-- architecture-atlas-v5:end -->
