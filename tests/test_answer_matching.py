@@ -3,6 +3,7 @@ Tests for answer matching.
 """
 
 import pytest
+
 from press.utils.answer_matching import (
     check_answer,
     exact_match,
@@ -65,3 +66,27 @@ class TestCheckAnswer:
     def test_invalid_mode(self):
         with pytest.raises(ValueError):
             check_answer("x", "y", mode="invalid")
+
+
+@pytest.mark.parametrize(
+    "answer, truth",
+    [
+        ("Australia", "Au"),
+        ("18420", "42"),
+        ("York", "New York"),
+        ("314", "3.14"),
+        ("-1", "1"),
+        ("1.5", "1"),
+    ],
+)
+def test_partial_substrings_are_not_correct(answer, truth):
+    assert not normalized_match(answer, truth)
+
+
+def test_decimal_answer_extraction():
+    assert extract_answer_from_response("The answer is 3.14. This is an approximation.") == "3.14"
+
+
+def test_unimplemented_llm_judge_is_not_silent_fallback():
+    with pytest.raises(ValueError):
+        check_answer("a", "b", mode="llm")

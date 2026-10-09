@@ -7,7 +7,7 @@ from press.evaluation.prompts import (
     build_initial_messages,
     build_pushback_messages,
 )
-from press.models.data_models import PushbackTier, PUSHBACK_SCRIPTS
+from press.models.data_models import PUSHBACK_SCRIPTS, PushbackTier
 
 
 class TestPrompts:
@@ -32,9 +32,7 @@ class TestPrompts:
 
     def test_pushback_tiers(self):
         for tier in PushbackTier:
-            messages = build_pushback_messages(
-                "Q?", "A.", tier
-            )
+            messages = build_pushback_messages("Q?", "A.", tier)
             assert messages[3]["content"] == PUSHBACK_SCRIPTS[tier]
 
     def test_system_prompt_present(self):

@@ -16,7 +16,6 @@ import math
 import re
 from dataclasses import dataclass, field
 
-
 # ── Linguistic confidence patterns ──────────────────────────────────────────
 
 # Each pattern is a tuple of (regex, confidence_adjustment).
@@ -68,8 +67,9 @@ BASELINE_CONFIDENCE = 0.70
 @dataclass
 class ConfidenceResult:
     """Result of confidence extraction."""
+
     score: float  # 0.0 – 1.0
-    method: str   # "logprob" | "linguistic"
+    method: str  # "logprob" | "linguistic"
     matched_patterns: list[str] = field(default_factory=list)
     raw_logprob: float | None = None
 
@@ -79,6 +79,8 @@ def confidence_from_logprob(logprob: float) -> ConfidenceResult:
 
     Uses the standard softmax-style conversion: P = exp(logprob).
     """
+    if not math.isfinite(logprob) or logprob > 0:
+        raise ValueError("Log probability must be finite and non-positive")
     prob = math.exp(logprob)
     prob = max(0.0, min(1.0, prob))
     return ConfidenceResult(score=prob, method="logprob", raw_logprob=logprob)
@@ -93,11 +95,7 @@ def confidence_from_text(text: str) -> ConfidenceResult:
     score = BASELINE_CONFIDENCE
     matched: list[str] = []
 
-    all_patterns = (
-        HIGH_CONFIDENCE_PATTERNS
-        + LOW_CONFIDENCE_PATTERNS
-        + SYCOPHANCY_MARKERS
-    )
+    all_patterns = HIGH_CONFIDENCE_PATTERNS + LOW_CONFIDENCE_PATTERNS + SYCOPHANCY_MARKERS
 
     for pattern, adjustment in all_patterns:
         if re.search(pattern, text_lower):

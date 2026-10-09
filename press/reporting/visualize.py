@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import matplotlib
+
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -78,11 +79,19 @@ def print_model_result(result: ModelResult) -> None:
     table.add_row("Initially Correct Instances", str(result.initially_correct_instances))
     table.add_row("Excluded Instances", str(result.excluded_instances))
     table.add_row("Total Instances", str(result.total_instances))
+    table.add_row("Completed Instances", str(result.completed_instances))
+    table.add_row("Failed/Incomplete Instances", str(result.failed_instances))
+    if result.initially_correct_instances == 0:
+        console.print(
+            "[yellow]No initially correct completed items: PRESS score is unavailable (0 sentinel).[/]"
+        )
     console.print(table)
 
     # By tier
     if result.by_tier:
-        tier_table = Table(title="\nCDS by Pushback Tier", show_header=True, header_style="bold magenta")
+        tier_table = Table(
+            title="\nCDS by Pushback Tier", show_header=True, header_style="bold magenta"
+        )
         tier_table.add_column("Tier", style="cyan")
         tier_table.add_column("Mean CDS", justify="right")
         tier_table.add_column("Median CDS", justify="right")
@@ -136,6 +145,7 @@ def print_leaderboard(results: Sequence[ModelResult]) -> None:
     table.add_column("T1 CDS", justify="right", min_width=8)
     table.add_column("T2 CDS", justify="right", min_width=8)
     table.add_column("T3 CDS", justify="right", min_width=8)
+    table.add_column("Completed / Total", justify="right")
 
     for rank, result in enumerate(entries, 1):
         t1 = result.by_tier[0].mean_cds if len(result.by_tier) > 0 else 0
@@ -153,6 +163,7 @@ def print_leaderboard(results: Sequence[ModelResult]) -> None:
             f"{t1:.4f}",
             f"{t2:.4f}",
             f"{t3:.4f}",
+            f"{result.completed_instances if result.completed_instances is not None else '?'}/{result.total_instances}",
         )
 
     console.print(table)
@@ -248,10 +259,22 @@ def plot_flip_rates(results: Sequence[ModelResult], output_dir: Path) -> Path:
     correct_flips = [r.overall_correct_flip_rate * 100 for r in results]
     incorrect_flips = [r.overall_incorrect_flip_rate * 100 for r in results]
 
-    ax.bar(x - width / 2, correct_flips, width, label="Correct → Wrong",
-           color="#C44E52", edgecolor="white")
-    ax.bar(x + width / 2, incorrect_flips, width, label="Wrong → Correct",
-           color="#55A868", edgecolor="white")
+    ax.bar(
+        x - width / 2,
+        correct_flips,
+        width,
+        label="Correct → Wrong (% initially correct)",
+        color="#C44E52",
+        edgecolor="white",
+    )
+    ax.bar(
+        x + width / 2,
+        incorrect_flips,
+        width,
+        label="Wrong → Correct (% initially wrong)",
+        color="#55A868",
+        edgecolor="white",
+    )
 
     ax.set_xlabel("Model", fontsize=12)
     ax.set_ylabel("Flip Rate (%)", fontsize=12)
@@ -286,10 +309,14 @@ def plot_press_scores(results: Sequence[ModelResult], output_dir: Path) -> Path:
     ax.set_title("PRESS Benchmark — Composite Scores", fontsize=14, fontweight="bold")
     ax.set_xlim(0, 105)
 
-    for bar, score in zip(bars, scores):
+    for bar, score in zip(bars, scores, strict=True):
         ax.text(
-            bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-            f"{score:.1f}", va="center", fontsize=10, fontweight="bold",
+            bar.get_width() + 1,
+            bar.get_y() + bar.get_height() / 2,
+            f"{score:.1f}",
+            va="center",
+            fontsize=10,
+            fontweight="bold",
         )
 
     ax.grid(axis="x", alpha=0.3)
@@ -338,6 +365,10 @@ def build_leaderboard(results: Sequence[ModelResult]) -> list[LeaderboardEntry]:
                 tier2_cds=t2,
                 tier3_cds=t3,
                 evaluated_on=r.timestamp,
+                total_instances=r.total_instances,
+                completed_instances=r.completed_instances,
+                failed_instances=r.failed_instances,
+                initially_correct_instances=r.initially_correct_instances,
             )
         )
     return sorted(entries, key=lambda e: e.press_score, reverse=True)

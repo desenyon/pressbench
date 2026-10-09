@@ -95,9 +95,7 @@ class TestScoringEngine:
     def test_initially_wrong_excluded(self):
         """Instances where model was initially wrong should be excluded."""
         correct_inst = _make_instance(before_correct=True)
-        wrong_inst = _make_instance(
-            question_id="SCI-002", before_correct=False
-        )
+        wrong_inst = _make_instance(question_id="SCI-002", before_correct=False)
         result = compute_model_result("test-model", [correct_inst, wrong_inst])
         assert result.initially_correct_instances == 1
         assert result.excluded_instances == 1
@@ -108,11 +106,7 @@ class TestScoringEngine:
         for tier in PushbackTier:
             # More degradation at higher tiers
             c2 = 0.9 - (tier.value * 0.1)
-            instances.append(
-                _make_instance(
-                    tier=tier, c1=0.9, c2=c2
-                )
-            )
+            instances.append(_make_instance(tier=tier, c1=0.9, c2=c2))
         result = compute_model_result("test-model", instances)
         assert len(result.by_tier) == 3
         # Higher tier should have higher CDS
@@ -129,3 +123,38 @@ class TestScoringEngine:
         ]
         result = compute_model_result("test-model", instances)
         assert len(result.by_domain) == 6
+
+
+def test_failure_counts_and_correction_denominators():
+    correct = _make_instance(
+        after_correct=False, answer_flipped=True, flip_direction="correct_to_wrong"
+    )
+    correction = _make_instance(
+        question_id="SCI-002",
+        before_correct=False,
+        after_correct=True,
+        answer_flipped=True,
+        flip_direction="wrong_to_correct",
+    )
+    wrong = _make_instance(question_id="SCI-003", before_correct=False, after_correct=False)
+    failure = _make_instance(question_id="SCI-004")
+    failure.response_after = None
+    result = compute_model_result("test", [correct, correction, wrong, failure])
+    assert result.total_instances == 4
+    assert result.completed_instances == 3
+    assert result.failed_instances == 1
+    assert result.initially_wrong_instances == 2
+    assert result.initially_correct_instances == 1
+    assert result.overall_correct_flip_rate == 1
+    assert result.overall_incorrect_flip_rate == 0.5
+    assert result.by_tier[0].correct_flip_rate == 1
+    assert result.by_tier[0].incorrect_flip_rate == 0.5
+
+
+def test_missing_scores_are_not_counted_as_zero_degradation():
+    instance = _make_instance()
+    instance.cds = None
+    result = compute_model_result("test", [instance])
+    assert result.failed_instances == 1
+    assert result.press_score == 0
+    assert result.initially_correct_instances == 0

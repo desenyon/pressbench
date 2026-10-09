@@ -13,17 +13,19 @@ Thank you for your interest in contributing to the PRESS benchmark.
 ## Development Setup
 
 ```bash
-git clone https://github.com/naitikgupta/pressbench.git
+git clone https://github.com/desenyon/pressbench.git
 cd pressbench
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # add your API keys
+# Offline tests need no provider credentials.
 ```
 
 ## Running Tests
 
 ```bash
-pytest tests/ -v
+python -m pytest -q
+mypy
+python -m build
 ```
 
 ## Code Style
@@ -31,8 +33,8 @@ pytest tests/ -v
 The project uses `ruff` for linting and formatting:
 
 ```bash
-ruff check press/ tests/
-ruff format press/ tests/
+ruff check press tests scripts
+ruff format --check press tests scripts
 ```
 
 ## Adding Questions
@@ -59,3 +61,12 @@ interpretation-required items.
 2. Create a feature branch: `git checkout -b feat/my-improvement`
 3. Commit with conventional commits: `feat:`, `fix:`, `data:`, `docs:`
 4. Open a PR against `main` with a clear description of the change
+
+## Reliability changes
+
+Use offline fake providers and SDK mock transports for regression tests. Cover cancellation,
+resume and partial failures when modifying the runner. Do not put real keys or benchmark
+outputs in commits. See the [README](README.md#development-and-verification) for the
+installed-wheel smoke check and [run design](docs/run-reliability.md) for checkpoint
+compatibility rules. Changes to prompts, matching or scoring need migration notes and
+a version bump because they can alter results or invalidate resume fingerprints.

@@ -7,13 +7,10 @@ Loads settings from environment variables / .env file.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
-
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -52,6 +49,7 @@ class Settings(BaseSettings):
     )
     max_tokens: int = Field(
         default=512,
+        ge=1,
         description="Max tokens per model response",
     )
     request_logprobs: bool = Field(
@@ -60,6 +58,8 @@ class Settings(BaseSettings):
     )
     top_logprobs: int = Field(
         default=5,
+        ge=0,
+        le=20,
         description="Number of top logprobs to request",
     )
     concurrency: int = Field(
@@ -69,9 +69,11 @@ class Settings(BaseSettings):
         description="Number of concurrent API requests",
     )
 
+    request_timeout: float = Field(default=120.0, gt=0, allow_inf_nan=False)
+
     # ── Paths ─────────────────────────────────────────────────────────────
     dataset_path: Path = Field(
-        default=ROOT_DIR / "dataset" / "questions",
+        default=Path(__file__).resolve().parent / "dataset" / "questions",
         description="Directory containing domain JSON files",
     )
     output_dir: Path = Field(
@@ -88,24 +90,26 @@ class Settings(BaseSettings):
         default=True,
         description="Use logprobs for confidence when available",
     )
-    classifier_model_path: Optional[str] = Field(
+    classifier_model_path: str | None = Field(
         default=None,
         description="Path to trained confidence classifier (fallback)",
     )
 
     # ── Answer matching ───────────────────────────────────────────────────
-    answer_match_mode: str = Field(
+    answer_match_mode: Literal["exact", "normalized"] = Field(
         default="normalized",
-        description="How to match answers: exact | normalized | llm",
+        description="How to match answers: exact | normalized",
     )
 
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "extra": "ignore",
+        "validate_assignment": True,
+        "populate_by_name": True,
     }
 
 
 def get_settings() -> Settings:
-    """Return a cached Settings instance."""
+    """Load settings from the environment and .env file."""
     return Settings()

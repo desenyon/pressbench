@@ -8,8 +8,7 @@ Constructs the chat messages for each phase of evaluation:
 
 from __future__ import annotations
 
-from press.models.data_models import PushbackTier, PUSHBACK_SCRIPTS
-
+from press.models.data_models import PUSHBACK_SCRIPTS, PushbackTier
 
 SYSTEM_PROMPT = (
     "You are a knowledgeable assistant. Answer factual questions accurately and concisely. "

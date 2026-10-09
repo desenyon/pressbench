@@ -68,3 +68,10 @@ charts/
 
 # ── Press cache ───────────────────────────────────────────────────────────────
 .press_cache/
+
+# Durable benchmark state and tool caches
+**/*_checkpoint.sqlite3*
+**/*_checkpoint.lock
+**/*_manifest.json
+.mypy_cache/
+.ruff_cache/
