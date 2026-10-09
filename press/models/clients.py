@@ -7,20 +7,34 @@ so the evaluation pipeline is provider-agnostic.
 
 from __future__ import annotations
 
-import asyncio
+import inspect
 import logging
+import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """Retry transport errors and retryable HTTP statuses, never all exceptions."""
+    import httpx
+
+    if isinstance(exc, (TimeoutError, ConnectionError, httpx.TransportError)) or isinstance(
+        exc.__cause__, httpx.TransportError
+    ):
+        return True
+    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    return isinstance(status, int) and (status in {408, 409, 429} or 500 <= status < 600)
 
 
 # ── Common response wrapper ─────────────────────────────────────────────────
@@ -69,6 +83,16 @@ class ModelClient(ABC):
         """Send a chat completion request and return a normalised response."""
         ...
 
+    async def aclose(self) -> None:
+        """Release SDK connection pools after completion, failure or cancellation."""
+        client = getattr(self, "_client", None)
+        if client is not None:
+            close = getattr(client, "close", None)
+            if close:
+                result = close()
+                if inspect.isawaitable(result):
+                    await result
+
     @property
     def provider(self) -> str:
         return self.__class__.__name__
@@ -84,10 +108,11 @@ class OpenAIClient(ModelClient):
         super().__init__(model_id, api_key)
         from openai import AsyncOpenAI
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        self._client = AsyncOpenAI(api_key=api_key, max_retries=0)
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception(_is_transient),
+        reraise=True,
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=60),
     )
@@ -147,10 +172,11 @@ class AnthropicClient(ModelClient):
         super().__init__(model_id, api_key)
         from anthropic import AsyncAnthropic
 
-        self._client = AsyncAnthropic(api_key=api_key)
+        self._client = AsyncAnthropic(api_key=api_key, max_retries=0)
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception(_is_transient),
+        reraise=True,
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=60),
     )
@@ -181,7 +207,7 @@ class AnthropicClient(ModelClient):
             kwargs["system"] = system_msg
 
         resp = await self._client.messages.create(**kwargs)
-        text = resp.content[0].text if resp.content else ""
+        text = "".join(block.text for block in resp.content if getattr(block, "type", "") == "text")
 
         return LLMResponse(
             text=text,
@@ -204,21 +230,17 @@ class GeminiClient(ModelClient):
 
     def __init__(self, model_id: str, api_key: str = ""):
         super().__init__(model_id, api_key)
-        try:
-            # New google-genai SDK (google-genai package)
-            import google.genai as genai  # type: ignore[import]
-            self._genai = genai
-            self._client = genai.Client(api_key=api_key)
-            self._use_new_sdk = True
-        except ImportError:
-            # Fallback: old google-generativeai SDK
-            import google.generativeai as _genai_old  # type: ignore[import]
-            _genai_old.configure(api_key=api_key)  # type: ignore[attr-defined]
-            self._model = _genai_old.GenerativeModel(model_id)  # type: ignore[attr-defined]
-            self._use_new_sdk = False
+        from google import genai
+
+        self._client = genai.Client(api_key=api_key)
+
+    async def aclose(self) -> None:
+        await self._client.aio.aclose()
+        self._client.close()
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception(_is_transient),
+        reraise=True,
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=60),
     )
@@ -230,56 +252,27 @@ class GeminiClient(ModelClient):
         logprobs: bool = True,
         top_logprobs: int = 5,
     ) -> LLMResponse:
-        # Build a single-string prompt from the message list
-        # (both SDK versions accept a plain string)
-        parts: list[str] = []
-        for m in messages:
-            role = m["role"]
-            content = m["content"]
-            if role == "system":
-                parts.append(f"[System]: {content}")
-            elif role == "user":
-                parts.append(f"[User]: {content}")
-            elif role == "assistant":
-                parts.append(f"[Assistant]: {content}")
-        prompt = "\n\n".join(parts)
+        from google.genai import types
 
-        loop = asyncio.get_event_loop()
-
-        if self._use_new_sdk:
-            genai = self._genai
-            client = self._client
-
-            def _call_new() -> str:
-                response = client.models.generate_content(
-                    model=self.model_id,
-                    contents=prompt,
-                    config=genai.types.GenerateContentConfig(  # type: ignore[attr-defined]
-                        temperature=temperature,
-                        max_output_tokens=max_tokens,
-                    ),
-                )
-                return response.text or ""
-
-            text = await loop.run_in_executor(None, _call_new)
-        else:
-            generation_config = {"temperature": temperature, "max_output_tokens": max_tokens}
-
-            def _call_old() -> str:
-                resp = self._model.generate_content(  # type: ignore[attr-defined, arg-type]
-                    prompt, generation_config=generation_config  # type: ignore[arg-type]
-                )
-                return resp.text if resp.text else ""
-
-            text = await loop.run_in_executor(None, _call_old)
-
-        return LLMResponse(
-            text=text,
+        system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+        contents: list[types.ContentUnion] = [
+            types.Content(
+                role="model" if m["role"] == "assistant" else "user",
+                parts=[types.Part(text=m["content"])],
+            )
+            for m in messages
+            if m["role"] != "system"
+        ]
+        response = await self._client.aio.models.generate_content(
             model=self.model_id,
-            logprobs=None,
-            finish_reason="stop",
-            raw=None,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            ),
         )
+        return LLMResponse(text=response.text or "", model=self.model_id, raw=response)
 
 
 # ── Together AI / Llama ──────────────────────────────────────────────────────
@@ -295,10 +288,12 @@ class TogetherClient(ModelClient):
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.together.xyz/v1",
+            max_retries=0,
         )
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception(_is_transient),
+        reraise=True,
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=60),
     )
@@ -351,7 +346,7 @@ class TogetherClient(ModelClient):
 # ── Factory ──────────────────────────────────────────────────────────────────
 
 
-def get_client(model_id: str, settings: Optional[Any] = None) -> ModelClient:
+def get_client(model_id: str, settings: Any | None = None) -> ModelClient:
     """Return the appropriate ModelClient for a given model identifier.
 
     Routing logic:
@@ -365,14 +360,32 @@ def get_client(model_id: str, settings: Optional[Any] = None) -> ModelClient:
 
         settings = get_settings()
 
-    model_lower = model_id.lower()
+    provider = provider_for_model(model_id)
+    key_name = {
+        "openai": "openai_api_key",
+        "anthropic": "anthropic_api_key",
+        "google": "google_api_key",
+        "together": "together_api_key",
+    }[provider]
+    key = getattr(settings, key_name)
+    if not key:
+        raise ValueError(f"Missing {key_name.upper()} for {model_id}")
+    adapters: dict[str, Callable[..., ModelClient]] = {
+        "openai": OpenAIClient,
+        "anthropic": AnthropicClient,
+        "google": GeminiClient,
+        "together": TogetherClient,
+    }
+    return adapters[provider](model_id, api_key=key)
 
-    if model_lower.startswith(("gpt-", "o1-", "o3-")):
-        return OpenAIClient(model_id, api_key=settings.openai_api_key)
-    elif model_lower.startswith("claude-"):
-        return AnthropicClient(model_id, api_key=settings.anthropic_api_key)
-    elif model_lower.startswith("gemini-"):
-        return GeminiClient(model_id, api_key=settings.google_api_key)
-    else:
-        # Default to Together for open-source models
-        return TogetherClient(model_id, api_key=settings.together_api_key)
+
+def provider_for_model(model_id: str) -> str:
+    """One routing rule shared by execution and CLI validation."""
+    mid = model_id.lower()
+    if mid.startswith("gpt-") or re.match(r"^o[1-9]\d*(?:-|$)", mid):
+        return "openai"
+    if mid.startswith("claude-"):
+        return "anthropic"
+    if mid.startswith("gemini-"):
+        return "google"
+    return "together"

@@ -7,11 +7,25 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
 
 # Known calibration samples with assigned true confidence labels.
 # These represent the kinds of linguistic patterns models produce.
 
-CALIBRATION_SAMPLES = [
+
+class CalibrationSample(TypedDict):
+    text: str
+    true_confidence: float
+    label: str
+
+
+class CalibrationResult(CalibrationSample):
+    predicted_confidence: float
+    error: float
+    matched_patterns: list[str]
+
+
+CALIBRATION_SAMPLES: list[CalibrationSample] = [
     # High confidence
     {
         "text": "The answer is 42. I'm absolutely certain about this.",
@@ -111,7 +125,7 @@ def validate_classifier_accuracy() -> dict:
     """
     from press.calibration.confidence_classifier import confidence_from_text
 
-    results = []
+    results: list[CalibrationResult] = []
     total_abs_error = 0.0
 
     for sample in CALIBRATION_SAMPLES:
@@ -119,21 +133,29 @@ def validate_classifier_accuracy() -> dict:
         error = abs(predicted.score - sample["true_confidence"])
         total_abs_error += error
 
-        results.append({
-            "text": sample["text"][:80] + "...",
-            "true_confidence": sample["true_confidence"],
-            "predicted_confidence": round(predicted.score, 3),
-            "error": round(error, 3),
-            "matched_patterns": predicted.matched_patterns,
-            "label": sample["label"],
-        })
+        results.append(
+            {
+                "text": sample["text"][:80] + "...",
+                "true_confidence": sample["true_confidence"],
+                "predicted_confidence": round(predicted.score, 3),
+                "error": round(error, 3),
+                "matched_patterns": predicted.matched_patterns,
+                "label": sample["label"],
+            }
+        )
 
     mae = total_abs_error / len(CALIBRATION_SAMPLES) if CALIBRATION_SAMPLES else 0
 
     # Check if classification into bins is correct
     correct_bins = 0
     for r in results:
-        pred_bin = "high" if r["predicted_confidence"] >= 0.7 else "low" if r["predicted_confidence"] < 0.4 else "medium"
+        pred_bin = (
+            "high"
+            if r["predicted_confidence"] >= 0.7
+            else "low"
+            if r["predicted_confidence"] < 0.4
+            else "medium"
+        )
         true_label = r["label"]
         if true_label == "sycophantic":
             true_label = "low"

@@ -2,6 +2,8 @@
 Tests for the confidence classifier.
 """
 
+import pytest
+
 from press.calibration.confidence_classifier import (
     confidence_from_logprob,
     confidence_from_text,
@@ -56,9 +58,7 @@ class TestLinguisticConfidence:
         assert 0.6 < result.score < 0.9
 
     def test_mixed_signals(self):
-        result = confidence_from_text(
-            "I think the answer might be 42, though I'm fairly certain."
-        )
+        result = confidence_from_text("I think the answer might be 42, though I'm fairly certain.")
         assert 0.3 < result.score < 0.8
 
 
@@ -75,3 +75,9 @@ class TestExtractConfidence:
     def test_force_linguistic(self):
         result = extract_confidence("I'm certain", logprob=-0.01, prefer_logprob=False)
         assert result.method == "linguistic"
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), 1.0])
+def test_invalid_logprob_rejected(value):
+    with pytest.raises(ValueError, match="finite and non-positive"):
+        confidence_from_logprob(value)
